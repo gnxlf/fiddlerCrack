@@ -371,8 +371,8 @@ jobs:
 
       - name: Extract DMG
         run: |
-          hdiutil attach FiddlerEverywhereSetup.dmg
-          MOUNT_POINT=$(hdiutil info | grep "/Volumes/" | tail -1 | awk '{print $NF}')
+          printf 'Y\n' | PAGER=true hdiutil attach FiddlerEverywhereSetup.dmg -nobrowse -noautoopen
+          MOUNT_POINT=$(hdiutil info | grep "/Volumes/" | tail -1 | sed 's/.*\(\/Volumes\/.*\)/\1/' | xargs)
           echo "Mounted at: $MOUNT_POINT"
           mkdir -p fe_app
           cp -R "$MOUNT_POINT/"* ./fe_app/ || cp -R "$MOUNT_POINT/." ./fe_app/
