@@ -11,6 +11,7 @@ on:
         options:
           - Windows (x86_64)
           - Linux (x86_64)
+          - Mac (arm64)
 
 env:
   OS_ARCH: ${{ github.event.inputs.os-and-arch }}
@@ -306,12 +307,13 @@ jobs:
 
   download-fiddler-everywhere-mac:
     if: ${{ github.event.inputs.os-and-arch == 'Mac (x86_64)' || github.event.inputs.os-and-arch == 'Mac (arm64)' || github.event.inputs.os-and-arch == 'Mac (arm64e)' }}
-    runs-on: mac-latest
+    runs-on: macos-latest
     needs: 
       - scrape_fe_version
+      - init_os_arch
 
     env: 
-      ARCH_CODE: ${{ github.event.inputs.arch_code }}
+      ARCH_CODE: ${{ needs.init_os_arch.outputs.arch_code }}
 
     steps:
       - name: Build URL & Download
@@ -323,14 +325,12 @@ jobs:
           if (-not [string]::IsNullOrEmpty($scrapedVersion)) {
             $downloadUrl = "null"
 
-            if ($env:ARCH_CODE -eq "x86_64") {
+            if ($env:OS_ARCH -eq "Mac (x86_64)") {
               $downloadUrl = "https://downloads.getfiddler.com/mac/Fiddler%20Everywhere%20$scrapedVersion.dmg"
-            } elseif ($env:ARCH_CODE -eq "arm64") {
+            } elseif ($env:OS_ARCH -eq "Mac (arm64)") {
               $downloadUrl = "https://downloads.getfiddler.com/mac-arm64/Fiddler%20Everywhere%20$scrapedVersion.dmg"
-            } elseif ($env:ARCH_CODE -eq "arm64e") {
-              //Don't know
             } else {
-              throw "Unsupported OS architecture: $env:ARCH_CODE"
+              throw "Unsupported OS architecture: $env:OS_ARCH"
             }
           
             Write-Host "Download URL: $downloadUrl"
@@ -343,14 +343,17 @@ jobs:
           }
         shell: pwsh
 
-      - name: Extract AppImage 
+      - name: Extract DMG
         run: |
-          hdiutil attach FiddlerEverywhere.dmg
-          cp -R /Volumes/FiddlerEverywhere/* ./fe_app/
+          hdiutil attach FiddlerEverywhereSetup.dmg
+          MOUNT_POINT=$(hdiutil info | grep "/Volumes/" | tail -1 | awk '{print $NF}')
+          echo "Mounted at: $MOUNT_POINT"
+          mkdir -p fe_app
+          cp -R "$MOUNT_POINT/"* ./fe_app/ || cp -R "$MOUNT_POINT/." ./fe_app/
+          hdiutil detach "$MOUNT_POINT"
 
       - name: List fe_app
-        shell: pwsh
-        run: Get-ChildItem -Recurse
+        run: ls -laR fe_app
         
       - name: Upload Fiddler Everywhere Extracted folder as an artifact
         uses: actions/upload-artifact@v4
