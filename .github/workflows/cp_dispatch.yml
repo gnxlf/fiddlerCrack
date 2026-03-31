@@ -374,12 +374,25 @@ jobs:
           printf 'Y\n' | PAGER=true hdiutil attach FiddlerEverywhereSetup.dmg -nobrowse -noautoopen
           MOUNT_POINT=$(hdiutil info | grep "/Volumes/" | tail -1 | sed 's/.*\(\/Volumes\/.*\)/\1/' | xargs)
           echo "Mounted at: $MOUNT_POINT"
+          
+          # Find the .app bundle inside the mounted DMG
+          APP_PATH=$(find "$MOUNT_POINT" -maxdepth 1 -name "*.app" | head -1)
+          echo "App bundle: $APP_PATH"
+          
+          # Copy the Contents of the .app bundle so that fe_app/ mirrors the structure patch_fe expects
           mkdir -p fe_app
-          cp -R "$MOUNT_POINT/"* ./fe_app/ || cp -R "$MOUNT_POINT/." ./fe_app/
+          cp -R "$APP_PATH/Contents/"* ./fe_app/
+          
           hdiutil detach "$MOUNT_POINT"
 
       - name: List fe_app
-        run: ls -laR fe_app
+        run: |
+          echo "=== Top-level ==="
+          ls -la fe_app/
+          echo "=== Searching for fiddler.dylib ==="
+          find fe_app -name "fiddler.dylib" -o -name "libfiddler.dylib" 2>/dev/null || true
+          echo "=== Searching for main.js ==="
+          find fe_app -path "*/app/out/main.js" 2>/dev/null || true
         
       - name: Upload Fiddler Everywhere Extracted folder as an artifact
         uses: actions/upload-artifact@v4
